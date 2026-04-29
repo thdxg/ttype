@@ -12,5 +12,5 @@ fn main() -> Result<()> {
     f.read_to_string(&mut text)?;
 
     let mut app = App::new(text);
-    ratatui::run(|terminal| app.run(terminal))
+    app.run()
 }

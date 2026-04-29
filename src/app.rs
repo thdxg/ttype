@@ -1,56 +1,67 @@
 mod ui;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::DefaultTerminal;
+use std::time::{self, Duration};
 
 pub struct App {
-    original: String,
-    original_words: Vec<String>,
-    letters: Vec<Letter>,
-    current: usize,
+    words_original: Vec<String>,
+    words_input: Vec<String>,
+    start: Option<time::Instant>,
+    end: Option<time::Instant>,
     exit: bool,
 }
 
 impl App {
     pub fn new(original: String) -> Self {
-        let original_words: Vec<String> = original.split_whitespace().map(String::from).collect();
-        let letters = original
-            .chars()
-            .map(|c| Letter {
-                char: c,
-                kind: LetterKind::Unreached,
-            })
-            .collect();
+        let words_original: Vec<String> = original.split_whitespace().map(String::from).collect();
+        let words_input: Vec<String> = Vec::new();
         Self {
-            original,
-            original_words,
-            letters,
-            current: 0,
+            words_original,
+            words_input,
+            start: None,
+            end: None,
             exit: false,
         }
     }
 
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
-        while !self.exit {
-            terminal.draw(|frame| ui::Ui::new(self).draw(frame))?;
-            self.handle_event()?;
-        }
-        Ok(())
+    pub fn run(&mut self) -> Result<()> {
+        ratatui::run(|terminal| {
+            while self.end.is_none() {
+                ui::game::draw(self, terminal)?;
+                self.handle_event(Context::Game)?;
+            }
+            while !self.exit {
+                ui::stats::draw(self, terminal)?;
+                self.handle_event(Context::Stats)?;
+            }
+            Ok(())
+        })
     }
 
-    fn handle_event(&mut self) -> Result<()> {
+    fn handle_event(&mut self, ctx: Context) -> Result<()> {
+        if !event::poll(Duration::from_secs(0))? {
+            return Ok(());
+        }
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 match key_event.code {
-                    KeyCode::Esc => self.exit = true,
-                    KeyCode::Enter => todo!("reset"),
-                    KeyCode::Char(c) => {
-                        self.push_letter(c)?;
-                    }
-                    KeyCode::Backspace => {
-                        self.pop_letter()?;
-                    }
+                    KeyCode::Esc => match ctx {
+                        Context::Game => self.end = Some(time::Instant::now()),
+                        Context::Stats => self.exit = true,
+                    },
+                    KeyCode::Enter => match ctx {
+                        Context::Game => todo!("reset"),
+                        Context::Stats => self.exit = true,
+                    },
+                    KeyCode::Char(c) => match ctx {
+                        Context::Game => self.push_char(c),
+                        Context::Stats => {}
+                    },
+                    KeyCode::Backspace => match ctx {
+                        Context::Game => self.pop_char(),
+                        Context::Stats => {}
+                    },
                     _ => {}
                 }
             }
@@ -59,82 +70,44 @@ impl App {
         Ok(())
     }
 
-    fn push_letter(&mut self, char_input: char) -> Result<()> {
-        let (word_idx, char_idx) =
-            self.letters
-                .iter()
-                .take(self.current)
-                .fold((0, 0), |(wi, ci), l| {
-                    if l.char == ' ' {
-                        (wi + 1, 0)
-                    } else if !char_input.is_whitespace() {
-                        (wi, ci + 1)
-                    } else {
-                        (wi, ci)
-                    }
-                });
+    fn push_char(&mut self, c: char) {
+        if self.words_input.is_empty() {
+            self.start = Some(time::Instant::now());
+            self.words_input.push(String::new());
+        }
 
-        let word = self
-            .original_words
-            .get(word_idx)
-            .context("input words exceeded original words")?;
-
-        if let Some(char_original) = word.chars().nth(char_idx) {
-            if char_original == char_input {
-                // correct character
-                // TODO: better out-of-bounds handling
-                let letter = self.letters.get_mut(self.current).unwrap();
-                letter.kind = LetterKind::Correct;
-            } else {
-                // incorrect character
-                // TODO: better out-of-bounds handling
-                let letter = self.letters.get_mut(self.current).unwrap();
-                letter.kind = LetterKind::Incorrect;
+        if let Some(word) = self.words_input.last_mut() {
+            match c {
+                ' ' if !word.is_empty() => {
+                    self.words_input.push(String::new());
+                }
+                ' ' => { /* do nothing */ }
+                c => {
+                    word.push(c);
+                }
             }
         } else {
-            // excess character
-            self.letters.insert(
-                self.current,
-                Letter {
-                    char: char_input,
-                    kind: LetterKind::Excess,
-                },
-            );
+            unreachable!();
         }
 
-        self.current += 1;
-
-        Ok(())
+        // exit if last words are equal
+        if self.words_original.len() == self.words_input.len() {
+            let a = self.words_original.last().map(|w| w.len());
+            let b = self.words_input.last().map(|w| w.len());
+            if a == b {
+                self.end = Some(time::Instant::now())
+            }
+        }
     }
 
-    fn pop_letter(&mut self) -> Result<()> {
-        if self.current == 0 {
-            return Ok(());
+    fn pop_char(&mut self) {
+        if let Some(word) = self.words_input.last_mut() {
+            word.pop();
         }
-
-        let letter = self.letters.get_mut(self.current - 1).unwrap();
-        if letter.kind == LetterKind::Excess {
-            self.letters.remove(self.current - 1);
-        } else {
-            letter.kind = LetterKind::Unreached;
-        }
-
-        self.current -= 1;
-
-        Ok(())
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum LetterKind {
-    Correct,
-    Incorrect,
-    Excess,
-    Unreached,
-}
-
-#[derive(Debug)]
-pub struct Letter {
-    char: char,
-    kind: LetterKind,
+enum Context {
+    Game,
+    Stats,
 }
