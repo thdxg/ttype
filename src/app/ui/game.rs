@@ -1,11 +1,18 @@
-use std::cmp;
-use anyhow::{Result};
-use ratatui::{DefaultTerminal, buffer::Buffer, layout::Rect, style::{Color, Style}, text::{Line, Span, Text}, widgets::{Block, Padding, Paragraph, Widget}};
 use crate::app::App;
+use anyhow::Result;
+use ratatui::{
+    DefaultTerminal,
+    buffer::Buffer,
+    layout::Rect,
+    style::{Color, Style},
+    text::{Line, Span, Text},
+    widgets::{Block, Padding, Paragraph, Widget},
+};
+use std::cmp;
 
 pub fn draw(app: &App, terminal: &mut DefaultTerminal) -> Result<()> {
     let game = Game::new(app);
-    terminal.draw(|frame| { 
+    terminal.draw(|frame| {
         frame.render_widget(game, frame.area());
     })?;
     Ok(())
@@ -22,7 +29,11 @@ impl Game {
         let mut letters = create_diff(&app.words_input, &app.words_original);
         let cursor = find_cursor(&app.words_input, &app.words_original);
         letters[cursor].current = true;
-        Game { title: "ttype".into(), letters, cursor }
+        Game {
+            title: "ttype".into(),
+            letters,
+            cursor,
+        }
     }
 }
 
@@ -47,7 +58,7 @@ impl Widget for Game {
 
         title.render(area, buf);
         typing_area.render(area, buf);
-    }    
+    }
 }
 
 fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter> {

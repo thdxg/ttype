@@ -3,10 +3,10 @@ use std::time;
 use crate::app::App;
 use anyhow::{Error, Result};
 use ratatui::{
+    DefaultTerminal,
     buffer::Buffer,
     layout::{Constraint, Rect},
     widgets::{Cell, Row, Table, Widget},
-    DefaultTerminal,
 };
 
 pub fn draw(app: &App, terminal: &mut DefaultTerminal) -> Result<()> {
