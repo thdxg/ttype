@@ -12,7 +12,7 @@ fn main() -> Result<()> {
         f.read_to_string(&mut text)
             .context("Failed to read content")?;
 
-        let mut app = App::new(text);
+        let app = App::new(text);
         app.run()
     } else {
         println!("ttype: a simple typing test tui");

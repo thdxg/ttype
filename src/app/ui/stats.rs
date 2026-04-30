@@ -1,5 +1,3 @@
-use std::time;
-
 use crate::app::App;
 use ratatui::{
     buffer::Buffer,
@@ -9,50 +7,19 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Padding, Row, Table, Widget},
 };
 
-#[derive(Default)]
-pub struct Stats {
-    wpm: f64,
-    words: usize,
-    elapsed: time::Duration,
-    accuracy: f32,
+pub struct Stats<'a> {
+    app: &'a App<'a>,
 }
 
-impl Stats {
-    pub fn new(app: &App) -> Self {
-        let Some(start) = app.start else {
-            return Self::default();
-        };
-        let end = app.end.unwrap();
-        let words = app.words_input.len();
-        let elapsed = end.duration_since(start);
-        let wpm = words as f64 / (elapsed.as_secs_f64() / 60.0);
-        let (total, correct) =
-            app.words_input
-                .iter()
-                .enumerate()
-                .fold((0, 0), |(tot, cor), (i, w_input)| {
-                    if let Some(w_original) = app.words_original.get(i) {
-                        if w_input == w_original {
-                            (tot + 1, cor + 1)
-                        } else {
-                            (tot + 1, cor)
-                        }
-                    } else {
-                        (tot, cor)
-                    }
-                });
-        let accuracy = (correct as f32) / (total as f32);
-        Stats {
-            wpm,
-            words,
-            elapsed,
-            accuracy,
-        }
+impl<'a> Stats<'a> {
+    pub fn new(app: &'a App) -> Self {
+        Self { app }
     }
 }
 
-impl Widget for Stats {
+impl<'a> Widget for Stats<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let app = self.app;
         let title = Line::from("result ").blue();
         let instructions = Line::from(vec!["exit ".dark_gray(), "<esc>".blue(), " ".into()]);
         let block = Block::bordered()
@@ -63,15 +30,18 @@ impl Widget for Stats {
             .border_style(Style::new().dark_gray());
 
         let rows = [
-            Row::new([Cell::from("wpm"), Cell::from(format!("{:.2}", self.wpm))]),
-            Row::new([Cell::from("words"), Cell::from(self.words.to_string())]),
+            Row::new([Cell::from("wpm"), Cell::from(format!("{:.2}", app.wpm))]),
+            Row::new([
+                Cell::from("words"),
+                Cell::from(app.words_input.len().to_string()),
+            ]),
             Row::new([
                 Cell::from("elapsed (s)"),
-                Cell::from(format!("{:.2}", self.elapsed.as_secs_f64())),
+                Cell::from(format!("{:.2}", app.elapsed.as_secs_f64())),
             ]),
             Row::new([
                 Cell::from("accuracy"),
-                Cell::from(format!("{:.2}%", self.accuracy * 100.0)),
+                Cell::from(format!("{:.2}%", app.accuracy * 100.0)),
             ]),
         ];
         let widths = [Constraint::Percentage(50), Constraint::Percentage(50)];
