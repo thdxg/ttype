@@ -2,7 +2,7 @@
 
 A simple typing test tui. Provide your own text file to practice typing.
 
-<video src="./assets/demo.mov" width="320" height="240" controls></video>
+![demo]("./assets/demo.mp4")
 
 ## Installation
 
