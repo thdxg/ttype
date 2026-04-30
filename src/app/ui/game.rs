@@ -48,12 +48,12 @@ impl<'a> Widget for Game<'a> {
         }
 
         let body = Paragraph::new(Text::from(Line::from(
-            app.letters[visible]
+            app.letters[visible.clone()]
                 .iter()
                 .enumerate()
                 .map(|(i, letter)| {
                     Span::from(letter.char.to_string()).style(letter.style().bg(
-                        if i == app.cursor {
+                        if visible.start + i == app.cursor {
                             Color::DarkGray
                         } else {
                             Color::default()

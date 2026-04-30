@@ -52,7 +52,7 @@ impl<'a> App<'a> {
         let mut app = Self::default();
         app.title = TITLE;
         app.words_original = original.split_whitespace().map(String::from).collect();
-        app.letters = Vec::new();
+        app.letters = create_diff(&app.words_input, &app.words_original);
 
         app
     }
