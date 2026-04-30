@@ -29,10 +29,7 @@ impl App {
         ratatui::run(|terminal| {
             while self.ctx != AppContext::Finished {
                 terminal.draw(|frame| {
-                    let area = frame
-                        .area()
-                        .centered_vertically(ratatui::layout::Constraint::Length(10));
-                    frame.render_stateful_widget(ui::Ui::new(), area, self);
+                    frame.render_stateful_widget(ui::Ui::new(), frame.area(), self);
                 })?;
                 self.handle_event()?;
             }

@@ -63,14 +63,11 @@ impl Widget for Stats {
             .border_style(Style::new().dark_gray());
 
         let rows = [
-            Row::new([
-                Cell::from("wpm"),
-                Cell::from(format!("{:.2}", self.wpm.to_string())),
-            ]),
+            Row::new([Cell::from("wpm"), Cell::from(format!("{:.2}", self.wpm))]),
             Row::new([Cell::from("words"), Cell::from(self.words.to_string())]),
             Row::new([
                 Cell::from("elapsed (s)"),
-                Cell::from(format!("{:.2}", self.elapsed.as_secs_f64().to_string())),
+                Cell::from(format!("{:.2}", self.elapsed.as_secs_f64())),
             ]),
             Row::new([
                 Cell::from("accuracy"),
