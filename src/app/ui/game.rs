@@ -50,7 +50,16 @@ impl<'a> Widget for Game<'a> {
         let body = Paragraph::new(Text::from(Line::from(
             app.letters[visible]
                 .iter()
-                .map(|l| Span::from(l.char.to_string()).style(l.style()))
+                .enumerate()
+                .map(|(i, letter)| {
+                    Span::from(letter.char.to_string()).style(letter.style().bg(
+                        if i == app.cursor {
+                            Color::DarkGray
+                        } else {
+                            Color::default()
+                        },
+                    ))
+                })
                 .collect::<Vec<Span>>(),
         )));
 
@@ -71,10 +80,5 @@ impl Letter {
             LetterKind::Excess => LETTER_STYLE_EXCESS,
             LetterKind::Unreached => LETTER_STYLE_UNREACHED,
         }
-        .patch(if self.current {
-            Style::new().bg(Color::DarkGray)
-        } else {
-            Style::new().bg(Color::default())
-        })
     }
 }

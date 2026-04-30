@@ -2,10 +2,7 @@ mod ui;
 
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use std::{
-    cmp,
-    time::{self, Duration},
-};
+use std::{cmp, time};
 
 #[derive(Default)]
 pub struct App<'a> {
@@ -25,6 +22,14 @@ pub struct App<'a> {
     accuracy: f32,
 }
 
+#[derive(Default, PartialEq)]
+enum AppContext {
+    #[default]
+    Game,
+    Stats,
+    Finished,
+}
+
 #[derive(Debug, PartialEq, Default)]
 enum LetterKind {
     Correct,
@@ -36,9 +41,8 @@ enum LetterKind {
 
 #[derive(Debug, Default)]
 struct Letter {
-    pub char: char,
-    pub kind: LetterKind,
-    pub current: bool,
+    char: char,
+    kind: LetterKind,
 }
 
 const TITLE: &str = "ttype";
@@ -48,6 +52,7 @@ impl<'a> App<'a> {
         let mut app = Self::default();
         app.title = TITLE;
         app.words_original = original.split_whitespace().map(String::from).collect();
+        app.letters = Vec::new();
 
         app
     }
@@ -55,30 +60,12 @@ impl<'a> App<'a> {
     pub fn run(mut self) -> Result<()> {
         ratatui::run(|terminal| {
             while self.ctx != AppContext::Finished {
-                self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
-                self.letters = create_diff(&self.words_input, &self.words_original);
-                self.cursor = find_cursor(&self.words_input, &self.words_original);
-                self.letters[self.cursor].current = true;
                 if let Some(start) = self.start
                     && let Some(end) = self.end
                 {
                     self.elapsed = end.duration_since(start);
                     self.wpm = self.words_input.len() as f64 / (self.elapsed.as_secs_f64() / 60.0);
                 }
-                let correct = self
-                    .words_input
-                    .iter()
-                    .enumerate()
-                    .fold(0, |acc, (i, w_input)| {
-                        if let Some(w_original) = self.words_original.get(i)
-                            && w_input == w_original
-                        {
-                            acc + 1
-                        } else {
-                            acc
-                        }
-                    });
-                self.accuracy = (correct as f32) / (self.words_input.len() as f32);
                 terminal.draw(|frame| {
                     frame.render_widget(&self, frame.area());
                 })?;
@@ -90,9 +77,6 @@ impl<'a> App<'a> {
     }
 
     fn handle_event(&mut self) -> Result<()> {
-        if !event::poll(Duration::from_secs(0))? {
-            return Ok(());
-        }
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 match key_event.code {
@@ -167,21 +151,22 @@ impl<'a> App<'a> {
                 self.ctx = AppContext::Stats;
             }
         }
+        self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
+        self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
+        self.letters = create_diff(&self.words_input, &self.words_original);
+        self.cursor = find_cursor(&self.words_input, &self.words_original);
     }
 
     fn pop_char(&mut self) {
-        if let Some(word) = self.words_input.last_mut() {
-            word.pop();
-        }
+        let Some(word) = self.words_input.last_mut() else {
+            return;
+        };
+        word.pop();
+        self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
+        self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
+        self.letters = create_diff(&self.words_input, &self.words_original);
+        self.cursor = find_cursor(&self.words_input, &self.words_original);
     }
-}
-
-#[derive(Default, PartialEq)]
-enum AppContext {
-    #[default]
-    Game,
-    Stats,
-    Finished,
 }
 
 fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter> {
@@ -222,7 +207,6 @@ fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter>
                         .map(|c| Letter {
                             char: c,
                             kind: LetterKind::Unreached,
-                            current: false,
                         })
                         .collect();
                 }
@@ -231,7 +215,6 @@ fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter>
             word_diff.push(Letter {
                 char: ' ',
                 kind: LetterKind::Unreached,
-                current: false,
             });
 
             word_diff
@@ -263,4 +246,18 @@ fn find_cursor(words_input: &[String], words_original: &[String]) -> usize {
     }
 
     cursor
+}
+
+fn calculate_accuracy(words_input: &[String], words_original: &[String]) -> f32 {
+    let correct = words_input.iter().enumerate().fold(0, |acc, (i, w_input)| {
+        if let Some(w_original) = words_original.get(i)
+            && w_input == w_original
+        {
+            acc + 1
+        } else {
+            acc
+        }
+    });
+
+    (correct as f32) / (words_input.len() as f32)
 }
