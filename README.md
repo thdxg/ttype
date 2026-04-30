@@ -2,7 +2,7 @@
 
 A simple typing test tui. Provide your own text file to practice typing.
 
-![demo]("./assets/demo.mp4")
+![demo]("./assets/demo.gif")
 
 ## Installation
 
