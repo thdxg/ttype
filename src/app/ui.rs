@@ -8,7 +8,7 @@ use crate::app::{
     ui::{game::Game, stats::Stats},
 };
 
-impl<'a> Widget for &App<'a> {
+impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let area = area.centered_vertically(ratatui::layout::Constraint::Length(10));
         match self.ctx {

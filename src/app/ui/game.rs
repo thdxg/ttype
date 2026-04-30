@@ -9,7 +9,7 @@ use ratatui::{
 use std::cmp;
 
 pub struct Game<'a> {
-    app: &'a App<'a>,
+    app: &'a App,
 }
 
 impl<'a> Game<'a> {

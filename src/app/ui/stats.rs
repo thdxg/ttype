@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 pub struct Stats<'a> {
-    app: &'a App<'a>,
+    app: &'a App,
 }
 
 impl<'a> Stats<'a> {

@@ -5,8 +5,8 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use std::{cmp, time};
 
 #[derive(Default)]
-pub struct App<'a> {
-    title: &'a str,
+pub struct App {
+    title: &'static str,
 
     words_original: Vec<String>,
     words_input: Vec<String>,
@@ -47,7 +47,7 @@ struct Letter {
 
 const TITLE: &str = "ttype";
 
-impl<'a> App<'a> {
+impl App {
     pub fn new(original: String) -> Self {
         let mut app = Self::default();
         app.title = TITLE;
@@ -60,7 +60,9 @@ impl<'a> App<'a> {
     pub fn run(mut self) -> Result<()> {
         ratatui::run(|terminal| {
             while self.ctx != AppContext::Finished {
-                if let Some(start) = self.start
+                if self.elapsed.is_zero()
+                    && self.wpm == 0.0
+                    && let Some(start) = self.start
                     && let Some(end) = self.end
                 {
                     self.elapsed = end.duration_since(start);
@@ -77,6 +79,7 @@ impl<'a> App<'a> {
     }
 
     fn handle_event(&mut self) -> Result<()> {
+        #[allow(clippy::single_match)]
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 match key_event.code {
@@ -107,12 +110,10 @@ impl<'a> App<'a> {
                             }
                             self.push_char(c);
                         }
-                        AppContext::Stats => {}
                         _ => {}
                     },
                     KeyCode::Backspace => match self.ctx {
                         AppContext::Game => self.pop_char(),
-                        AppContext::Stats => {}
                         _ => {}
                     },
                     _ => {}
@@ -143,13 +144,11 @@ impl<'a> App<'a> {
         }
 
         // exit if last words are equal
-        if self.words_original.len() == self.words_input.len() {
-            let a = self.words_original.last().map(|w| w.len());
-            let b = self.words_input.last().map(|w| w.len());
-            if a == b {
-                self.end = Some(time::Instant::now());
-                self.ctx = AppContext::Stats;
-            }
+        if self.words_original.len() == self.words_input.len()
+            && self.words_original.last() == self.words_input.last()
+        {
+            self.end = Some(time::Instant::now());
+            self.ctx = AppContext::Stats;
         }
         self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
         self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
@@ -158,10 +157,13 @@ impl<'a> App<'a> {
     }
 
     fn pop_char(&mut self) {
-        let Some(word) = self.words_input.last_mut() else {
-            return;
-        };
-        word.pop();
+        if let Some(word) = self.words_input.last_mut() {
+            if word.is_empty() {
+                self.words_input.pop();
+            } else {
+                word.pop();
+            }
+        }
         self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
         self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
         self.letters = create_diff(&self.words_input, &self.words_original);
@@ -173,15 +175,17 @@ fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter>
     words_original
         .iter()
         .enumerate()
-        .flat_map(|(i, w_original)| {
+        .flat_map(|(i, chars_original)| {
             let mut word_diff: Vec<Letter> = Vec::new();
             match words_input.get(i) {
-                Some(w_input) => {
-                    for j in 0..cmp::max(w_original.len(), w_input.len()) {
+                Some(chars_input) => {
+                    let chars_original: Vec<char> = chars_original.chars().collect();
+                    let chars_input: Vec<char> = chars_input.chars().collect();
+                    for j in 0..cmp::max(chars_original.len(), chars_input.len()) {
                         let mut letter = Letter::default();
-                        match (w_original.chars().nth(j), w_input.chars().nth(j)) {
+                        match (chars_original.get(j), chars_input.get(j)) {
                             (Some(c_original), Some(c_input)) => {
-                                letter.char = c_original;
+                                letter.char = *c_original;
                                 letter.kind = if c_original == c_input {
                                     LetterKind::Correct
                                 } else {
@@ -189,11 +193,11 @@ fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter>
                                 };
                             }
                             (Some(c_original), None) => {
-                                letter.char = c_original;
+                                letter.char = *c_original;
                                 letter.kind = LetterKind::Unreached;
                             }
                             (None, Some(c_input)) => {
-                                letter.char = c_input;
+                                letter.char = *c_input;
                                 letter.kind = LetterKind::Excess;
                             }
                             (None, None) => unreachable!(),
@@ -202,7 +206,7 @@ fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter>
                     }
                 }
                 None => {
-                    word_diff = w_original
+                    word_diff = chars_original
                         .chars()
                         .map(|c| Letter {
                             char: c,
@@ -224,12 +228,9 @@ fn create_diff(words_input: &[String], words_original: &[String]) -> Vec<Letter>
 
 fn find_cursor(words_input: &[String], words_original: &[String]) -> usize {
     let mut cursor = 0;
-    words_input
-        .iter()
-        .zip(words_original.iter())
-        .for_each(|(w_input, w_original)| {
-            cursor += cmp::max(w_input.len(), w_original.len());
-        });
+    for (w_input, w_original) in words_input.iter().zip(words_original.iter()) {
+        cursor += cmp::max(w_input.len(), w_original.len());
+    }
 
     if !words_input.is_empty() {
         cursor += words_input.len() - 1; // account for spaces
@@ -249,6 +250,10 @@ fn find_cursor(words_input: &[String], words_original: &[String]) -> usize {
 }
 
 fn calculate_accuracy(words_input: &[String], words_original: &[String]) -> f32 {
+    if words_input.is_empty() {
+        return 0.0;
+    }
+
     let correct = words_input.iter().enumerate().fold(0, |acc, (i, w_input)| {
         if let Some(w_original) = words_original.get(i)
             && w_input == w_original
