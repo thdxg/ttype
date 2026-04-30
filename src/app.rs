@@ -32,17 +32,7 @@ impl App {
                     let area = frame
                         .area()
                         .centered_vertically(ratatui::layout::Constraint::Length(10));
-                    match self.ctx {
-                        AppContext::Game => {
-                            let stats = ui::game::Game::new(self);
-                            frame.render_widget(stats, area);
-                        }
-                        AppContext::Stats => {
-                            let stats = ui::stats::Stats::new(self);
-                            frame.render_widget(stats, area);
-                        }
-                        _ => {}
-                    }
+                    frame.render_stateful_widget(ui::Ui::new(), area, self);
                 })?;
                 self.handle_event()?;
             }
@@ -69,7 +59,10 @@ impl App {
                         _ => {}
                     },
                     KeyCode::Enter => match self.ctx {
-                        AppContext::Game => todo!("reset"),
+                        AppContext::Game => {
+                            self.start = None;
+                            self.words_input.clear();
+                        }
                         AppContext::Stats => {
                             self.ctx = AppContext::Finished;
                         }

@@ -9,6 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Padding, Row, Table, Widget},
 };
 
+#[derive(Default)]
 pub struct Stats {
     wpm: f64,
     words: usize,
@@ -18,7 +19,9 @@ pub struct Stats {
 
 impl Stats {
     pub fn new(app: &App) -> Self {
-        let start = app.start.unwrap();
+        let Some(start) = app.start else {
+            return Self::default();
+        };
         let end = app.end.unwrap();
         let words = app.words_input.len();
         let elapsed = end.duration_since(start);
@@ -60,11 +63,14 @@ impl Widget for Stats {
             .border_style(Style::new().dark_gray());
 
         let rows = [
-            Row::new([Cell::from("wpm"), Cell::from(self.wpm.to_string())]),
+            Row::new([
+                Cell::from("wpm"),
+                Cell::from(format!("{:.2}", self.wpm.to_string())),
+            ]),
             Row::new([Cell::from("words"), Cell::from(self.words.to_string())]),
             Row::new([
                 Cell::from("elapsed (s)"),
-                Cell::from(self.elapsed.as_secs_f64().to_string()),
+                Cell::from(format!("{:.2}", self.elapsed.as_secs_f64().to_string())),
             ]),
             Row::new([
                 Cell::from("accuracy"),
