@@ -1,45 +1,55 @@
 use crate::app::App;
-use anyhow::Result;
 use ratatui::{
-    DefaultTerminal,
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Style},
+    style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Padding, Paragraph, Widget},
+    widgets::{Block, Borders, Padding, Paragraph, Widget},
 };
 use std::cmp;
 
-pub fn draw(app: &App, terminal: &mut DefaultTerminal) -> Result<()> {
-    let game = Game::new(app);
-    terminal.draw(|frame| {
-        frame.render_widget(game, frame.area());
-    })?;
-    Ok(())
-}
-
-struct Game {
+pub struct Game {
     title: String,
     letters: Vec<Letter>,
     cursor: usize,
+    progress: f32,
 }
 
 impl Game {
-    fn new(app: &App) -> Self {
+    pub fn new(app: &App) -> Self {
         let mut letters = create_diff(&app.words_input, &app.words_original);
         let cursor = find_cursor(&app.words_input, &app.words_original);
         letters[cursor].current = true;
+        let progress = app.words_input.len() as f32 / app.words_original.len() as f32;
         Game {
             title: "ttype".into(),
             letters,
             cursor,
+            progress,
         }
     }
 }
 
 impl Widget for Game {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(self.title);
+        let title = Line::from(format!("{} ", self.title)).blue();
+        let progress = Line::from(format!(" {:.1}%", self.progress * 100.0))
+            .blue()
+            .right_aligned();
+        let instructions = Line::from(vec![
+            "restart ".dark_gray(),
+            "<enter> ".blue(),
+            "end ".dark_gray(),
+            "<esc>".blue(),
+            " ".into(),
+        ]);
+        let block = Block::bordered()
+            .title(title)
+            .title(progress)
+            .title_bottom(instructions)
+            .padding(Padding::vertical(2))
+            .borders(Borders::TOP | Borders::BOTTOM)
+            .border_style(Style::new().dark_gray());
 
         let width = area.width as usize;
         let mut visible = 0..cmp::min(width, self.letters.len());
@@ -48,16 +58,14 @@ impl Widget for Game {
             visible.end = cmp::min(self.letters.len(), self.cursor + width / 2);
         }
 
-        let typing_area = Paragraph::new(Text::from(Line::from(
+        let body = Paragraph::new(Text::from(Line::from(
             self.letters[visible]
                 .iter()
                 .map(|l| Span::from(l.char.to_string()).style(l.style()))
                 .collect::<Vec<Span>>(),
-        )))
-        .block(Block::new().padding(Padding::uniform(2)));
+        )));
 
-        title.render(area, buf);
-        typing_area.render(area, buf);
+        body.block(block).render(area, buf);
     }
 }
 

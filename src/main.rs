@@ -6,11 +6,18 @@ use std::{env::args, fs::File, io::Read};
 use crate::app::App;
 
 fn main() -> Result<()> {
-    let fpath = args().nth(1).context("file path must be specified")?;
-    let mut f = File::open(fpath)?;
-    let mut text: String = String::new();
-    f.read_to_string(&mut text)?;
+    if let Some(fpath) = args().nth(1) {
+        let mut f = File::open(fpath).context("Failed to open file")?;
+        let mut text: String = String::new();
+        f.read_to_string(&mut text)
+            .context("Failed to read content")?;
 
-    let mut app = App::new(text);
-    app.run()
+        let mut app = App::new(text);
+        app.run()
+    } else {
+        println!("ttype: a simple typing test tui");
+        println!("usage:\n");
+        println!("\tttype <file-path>");
+        Ok(())
+    }
 }
