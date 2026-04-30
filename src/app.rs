@@ -97,6 +97,7 @@ impl App {
                         AppContext::Game => {
                             self.start = None;
                             self.words_input.clear();
+                            self.update();
                         }
                         AppContext::Stats => {
                             self.ctx = AppContext::Finished;
@@ -122,6 +123,13 @@ impl App {
             _ => {}
         };
         Ok(())
+    }
+
+    fn update(&mut self) {
+        self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
+        self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
+        self.letters = create_diff(&self.words_input, &self.words_original);
+        self.cursor = find_cursor(&self.words_input, &self.words_original);
     }
 
     fn push_char(&mut self, c: char) {
@@ -150,10 +158,8 @@ impl App {
             self.end = Some(time::Instant::now());
             self.ctx = AppContext::Stats;
         }
-        self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
-        self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
-        self.letters = create_diff(&self.words_input, &self.words_original);
-        self.cursor = find_cursor(&self.words_input, &self.words_original);
+
+        self.update();
     }
 
     fn pop_char(&mut self) {
@@ -164,10 +170,8 @@ impl App {
                 word.pop();
             }
         }
-        self.progress = self.words_input.len() as f32 / self.words_original.len() as f32;
-        self.accuracy = calculate_accuracy(&self.words_input, &self.words_original);
-        self.letters = create_diff(&self.words_input, &self.words_original);
-        self.cursor = find_cursor(&self.words_input, &self.words_original);
+
+        self.update();
     }
 }
 
